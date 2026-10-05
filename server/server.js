@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import connectDB from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
+import lectureRoutes from './routes/lectureRoutes.js';
+import chunkRoutes from './routes/chunkRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +23,11 @@ app.get('/api/health', (req, res) => {
     message: 'LearnLoop API is running',
   });
 });
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/lectures', lectureRoutes);
+app.use('/api/chunks', chunkRoutes);
 
 // Connect to MongoDB and start server
 const startServer = async () => {

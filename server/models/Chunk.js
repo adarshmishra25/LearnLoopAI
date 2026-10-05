@@ -44,6 +44,15 @@ const chunkSchema = new mongoose.Schema({
       answer: { type: String },
     },
   ],
+  quizQuestions: [
+    {
+      questionId: { type: String },
+      question: { type: String },
+      options: [{ type: String }],
+      correctAnswer: { type: String },
+      explanation: { type: String },
+    },
+  ],
   isUnlockedByDefault: {
     type: Boolean,
     default: false,
