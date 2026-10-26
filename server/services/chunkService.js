@@ -14,9 +14,29 @@ export const splitTranscriptIntoChunks = (segments, totalDuration) => {
     return [];
   }
 
-  // Target chunk duration in seconds (3-5 minutes)
-  const TARGET_CHUNK_DURATION = 240; // 4 minutes
-  const MIN_CHUNK_DURATION = 120;    // 2 minutes minimum
+  // Calculate dynamic chunk target duration to produce 4 to 8 manageable learning modules
+  const lastSegment = segments[segments.length - 1];
+  const duration = totalDuration || (lastSegment ? lastSegment.offset + (lastSegment.duration || 0) : 0);
+
+  let targetChunkDuration = 300; // 5 minutes default
+  if (duration > 5400) {
+    // Over 90 mins: target ~8 chunks
+    targetChunkDuration = Math.round(duration / 8);
+  } else if (duration > 2400) {
+    // 40 to 90 mins: target ~6 chunks
+    targetChunkDuration = Math.round(duration / 6);
+  } else if (duration > 900) {
+    // 15 to 40 mins: target ~4 chunks
+    targetChunkDuration = Math.round(duration / 4);
+  } else if (duration > 300) {
+    // 5 to 15 mins: target ~3 chunks
+    targetChunkDuration = Math.max(120, Math.round(duration / 3));
+  } else {
+    // Under 5 mins: target ~2 chunks
+    targetChunkDuration = Math.max(90, Math.round(duration / 2));
+  }
+
+  const minChunkDuration = Math.max(60, Math.round(targetChunkDuration * 0.5));
   
   const chunks = [];
   let currentChunk = {
@@ -39,7 +59,7 @@ export const splitTranscriptIntoChunks = (segments, totalDuration) => {
     // Check for natural break points (sentences ending with period)
     const endsWithSentence = segment.text.trim().match(/[.!?]$/);
 
-    if (chunkDuration >= TARGET_CHUNK_DURATION && endsWithSentence) {
+    if (chunkDuration >= targetChunkDuration && endsWithSentence) {
       currentChunk.text = currentChunk.segments.map(s => s.text).join(' ');
       chunks.push({ ...currentChunk });
       currentChunk = { segments: [], startTime: 0, endTime: 0, text: '' };
@@ -52,7 +72,7 @@ export const splitTranscriptIntoChunks = (segments, totalDuration) => {
     
     // If the last chunk is too small and we have previous chunks, merge it
     const lastChunkDuration = currentChunk.endTime - currentChunk.startTime;
-    if (lastChunkDuration < MIN_CHUNK_DURATION && chunks.length > 0) {
+    if (lastChunkDuration < minChunkDuration && chunks.length > 0) {
       const lastChunk = chunks[chunks.length - 1];
       lastChunk.segments = [...lastChunk.segments, ...currentChunk.segments];
       lastChunk.endTime = currentChunk.endTime;

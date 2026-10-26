@@ -4,7 +4,7 @@ import QuizAttempt from '../models/QuizAttempt.js';
 import { extractVideoId, isValidYouTubeUrl, getVideoMetadata } from '../services/youtubeService.js';
 import { transcribeFromYouTube } from '../services/transcriptionService.js';
 import { splitTranscriptIntoChunks } from '../services/chunkService.js';
-import { generateLearningMaterial, generateQuizQuestions } from '../services/aiService.js';
+import { generateAllChunksContent } from '../services/aiService.js';
 
 /**
  * POST /api/lectures
@@ -83,39 +83,33 @@ const processLecture = async (lectureId, videoId) => {
 
     const lecture = await Lecture.findById(lectureId);
 
-    // Step 3: Generate AI content and create chunks
-    console.log(`[Processing] Generating AI content for ${rawChunks.length} chunks...`);
-    
-    for (const rawChunk of rawChunks) {
-      console.log(`[Processing] Generating content for chunk ${rawChunk.chunkNumber}/${rawChunks.length}...`);
-      
-      // Generate learning material
-      const material = await generateLearningMaterial(
-        rawChunk.transcript,
-        rawChunk.chunkNumber,
-        lecture.title
-      );
+    // Step 3: Generate AI content for all chunks in a single call
+    console.log(`[Processing] Generating AI content for ${rawChunks.length} chunks in a single AI call...`);
+    const allChunksContent = await generateAllChunksContent(rawChunks, lecture.title);
 
-      // Generate quiz questions
-      const quizQuestions = await generateQuizQuestions(
-        rawChunk.transcript,
-        material.title,
-        lecture.title
-      );
+    for (const rawChunk of rawChunks) {
+      const content = allChunksContent[rawChunk.chunkNumber] || {
+        title: `Part ${rawChunk.chunkNumber}`,
+        summary: '',
+        keyConcepts: [],
+        keyTakeaways: [],
+        flashcards: [],
+        quizQuestions: [],
+      };
 
       // Create chunk in DB
       await Chunk.create({
         lecture: lectureId,
         chunkNumber: rawChunk.chunkNumber,
-        title: material.title,
+        title: content.title,
         startTime: rawChunk.startTime,
         endTime: rawChunk.endTime,
         transcript: rawChunk.transcript,
-        summary: material.summary,
-        keyConcepts: material.keyConcepts,
-        keyTakeaways: material.keyTakeaways,
-        flashcards: material.flashcards,
-        quizQuestions,
+        summary: content.summary,
+        keyConcepts: content.keyConcepts,
+        keyTakeaways: content.keyTakeaways,
+        flashcards: content.flashcards,
+        quizQuestions: content.quizQuestions,
         order: rawChunk.order,
         isUnlockedByDefault: rawChunk.isUnlockedByDefault,
       });

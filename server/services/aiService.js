@@ -18,7 +18,8 @@ const initializeAI = () => {
   }
   if (!genAI) {
     genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    model = genAI.getGenerativeModel({ model: modelName });
   }
   return model;
 };
@@ -298,7 +299,170 @@ Rules:
   }
 };
 
+/**
+ * Generate learning material AND quiz questions for all chunks in a single AI call
+ * to minimize token consumption and avoid multiple API calls.
+ */
+export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
+  const ai = initializeAI();
+
+  if (!ai) {
+    console.warn(`[AI Service] GEMINI_API_KEY not configured. Using fallback generator for all chunks.`);
+    const fallbackResults = {};
+    for (const chunk of rawChunks) {
+      const material = generateFallbackMaterial(chunk.transcript, chunk.chunkNumber, lectureTitle);
+      const quiz = generateFallbackQuiz(chunk.transcript, material.title, lectureTitle);
+      fallbackResults[chunk.chunkNumber] = { ...material, quizQuestions: quiz };
+    }
+    return fallbackResults;
+  }
+
+  // If there are more than 8 chunks, batch in groups of 6 to guarantee response fits within output tokens
+  const BATCH_SIZE = 8;
+  const chunkBatches = [];
+  for (let i = 0; i < rawChunks.length; i += BATCH_SIZE) {
+    chunkBatches.push(rawChunks.slice(i, i + BATCH_SIZE));
+  }
+
+  const allResults = {};
+
+  for (let b = 0; b < chunkBatches.length; b++) {
+    const batch = chunkBatches[b];
+    console.log(`[AI Service] Processing batch ${b + 1}/${chunkBatches.length} (${batch.length} chunks) in a single Gemini call...`);
+
+    const sectionsPrompt = batch.map(c => {
+      // Limit transcript preview per chunk if very long to stay well within context limit
+      const textSample = c.transcript.length > 2500 ? c.transcript.slice(0, 2500) + '...' : c.transcript;
+      return `=== CHUNK ${c.chunkNumber} (Time: ${Math.floor(c.startTime / 60)}m - ${Math.floor(c.endTime / 60)}m) ===\n${textSample}`;
+    }).join('\n\n');
+
+    const prompt = `You are an expert educator and curriculum designer.
+Analyze the following lecture sections and generate structured learning material AND quiz questions for each section in a SINGLE JSON response.
+
+MANDATORY LANGUAGE RULE:
+Regardless of the language of the transcript or lecture (Hindi, Hinglish, Spanish, French, etc.), you MUST TRANSLATE and output ALL content ENTIRELY in clear, fluent, professional ENGLISH.
+
+Lecture Title: "${lectureTitle}"
+
+${sectionsPrompt}
+
+Generate a JSON object with a "chunks" array containing an entry for EACH chunk above.
+EXACT JSON FORMAT:
+{
+  "chunks": [
+    {
+      "chunkNumber": 1,
+      "title": "Concise section title in ENGLISH (max 10 words)",
+      "summary": "Clear 2-3 paragraph summary in ENGLISH of this section",
+      "keyConcepts": ["Concept 1 in English", "Concept 2 in English", "Concept 3 in English", "Concept 4 in English", "Concept 5 in English"],
+      "keyTakeaways": ["Takeaway 1 in English", "Takeaway 2 in English", "Takeaway 3 in English"],
+      "flashcards": [
+        {"question": "English question 1?", "answer": "English answer 1"},
+        {"question": "English question 2?", "answer": "English answer 2"},
+        {"question": "English question 3?", "answer": "English answer 3"},
+        {"question": "English question 4?", "answer": "English answer 4"},
+        {"question": "English question 5?", "answer": "English answer 5"}
+      ],
+      "quizQuestions": [
+        {
+          "questionId": "q1",
+          "question": "Question text in ENGLISH?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": "Option A",
+          "explanation": "Brief explanation in ENGLISH"
+        },
+        {
+          "questionId": "q2",
+          "question": "Question text in ENGLISH?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": "Option A",
+          "explanation": "Brief explanation in ENGLISH"
+        },
+        {
+          "questionId": "q3",
+          "question": "Question text in ENGLISH?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": "Option A",
+          "explanation": "Brief explanation in ENGLISH"
+        },
+        {
+          "questionId": "q4",
+          "question": "Question text in ENGLISH?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": "Option A",
+          "explanation": "Brief explanation in ENGLISH"
+        },
+        {
+          "questionId": "q5",
+          "question": "Question text in ENGLISH?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": "Option A",
+          "explanation": "Brief explanation in ENGLISH"
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Everything MUST BE IN ENGLISH.
+- Return ONLY valid JSON, no markdown code fence or commentary.
+- Provide an entry for EVERY chunk requested in this batch (chunkNumbers: ${batch.map(c => c.chunkNumber).join(', ')}).
+- For each chunk, provide exactly 5 flashcards and 5 multiple choice questions.
+- correctAnswer must exactly match one of the 4 options.`;
+
+    try {
+      const result = await ai.generateContent(prompt);
+      const responseText = result.response.text();
+      let cleanJson = responseText.trim();
+      cleanJson = cleanJson.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+      const parsed = JSON.parse(cleanJson);
+
+      const generatedChunks = Array.isArray(parsed.chunks) ? parsed.chunks : (Array.isArray(parsed) ? parsed : []);
+
+      for (const rawChunk of batch) {
+        const found = generatedChunks.find(c => Number(c.chunkNumber) === Number(rawChunk.chunkNumber)) || generatedChunks[batch.indexOf(rawChunk)];
+        if (found && found.title) {
+          allResults[rawChunk.chunkNumber] = {
+            title: found.title || `Section ${rawChunk.chunkNumber}`,
+            summary: found.summary || '',
+            keyConcepts: found.keyConcepts || [],
+            keyTakeaways: found.keyTakeaways || [],
+            flashcards: (found.flashcards || []).map(fc => ({
+              question: fc.question,
+              answer: fc.answer,
+            })),
+            quizQuestions: (found.quizQuestions || []).map((q, idx) => ({
+              questionId: `q${idx + 1}`,
+              question: q.question,
+              options: q.options || [],
+              correctAnswer: q.correctAnswer,
+              explanation: q.explanation || '',
+            })),
+          };
+        } else {
+          // Fallback for this single chunk if missing from AI response
+          const material = generateFallbackMaterial(rawChunk.transcript, rawChunk.chunkNumber, lectureTitle);
+          const quiz = generateFallbackQuiz(rawChunk.transcript, material.title, lectureTitle);
+          allResults[rawChunk.chunkNumber] = { ...material, quizQuestions: quiz };
+        }
+      }
+    } catch (error) {
+      console.error(`[AI Service] Batch AI generation failed (${error.message}). Using fallback for this batch.`);
+      for (const rawChunk of batch) {
+        const material = generateFallbackMaterial(rawChunk.transcript, rawChunk.chunkNumber, lectureTitle);
+        const quiz = generateFallbackQuiz(rawChunk.transcript, material.title, lectureTitle);
+        allResults[rawChunk.chunkNumber] = { ...material, quizQuestions: quiz };
+      }
+    }
+  }
+
+  return allResults;
+};
+
 export default {
   generateLearningMaterial,
   generateQuizQuestions,
+  generateAllChunksContent,
 };
+
