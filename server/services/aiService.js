@@ -1,8 +1,8 @@
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 let genAI = null;
-let model = null;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isGeminiConfigured = () => {
   return (
@@ -12,16 +12,60 @@ const isGeminiConfigured = () => {
   );
 };
 
-const initializeAI = () => {
+/**
+ * Execute a Gemini prompt with automatic retry on temporary 503 / 429 errors
+ * and failover between viable model versions.
+ */
+const callGeminiWithRetry = async (prompt, maxRetries = 3) => {
   if (!isGeminiConfigured()) {
     return null;
   }
+
   if (!genAI) {
     genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-    model = genAI.getGenerativeModel({ model: modelName });
   }
-  return model;
+
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  // Candidate fallback models if primary model is unavailable or overloaded
+  const candidateModels = [
+    primaryModel,
+    'gemini-3.6-flash',
+  ].filter((m, i, arr) => m && arr.indexOf(m) === i);
+
+  let lastError = null;
+
+  for (const modelName of candidateModels) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+      } catch (err) {
+        lastError = err;
+        const msg = err.message || '';
+        const isTemporary = 
+          msg.includes('503') || 
+          msg.includes('high demand') || 
+          msg.includes('Service Unavailable') || 
+          msg.includes('429') || 
+          msg.includes('ResourceExhausted');
+
+        if (isTemporary && attempt < maxRetries) {
+          const delay = attempt * 2000;
+          console.warn(`[AI Service] ${modelName} temporary high demand spike (503/429). Retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})...`);
+          await sleep(delay);
+          continue;
+        }
+
+        // If not recoverable on this attempt or out of retries for this model
+        if (attempt === maxRetries) {
+          console.warn(`[AI Service] ${modelName} exhausted ${maxRetries} retry attempts.`);
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini API attempts failed');
 };
 
 const generateFallbackMaterial = (chunkTranscript, chunkNumber, lectureTitle) => {
@@ -164,9 +208,7 @@ const generateFallbackQuiz = (chunkTranscript, chunkTitle, lectureTitle) => {
 };
 
 export const generateLearningMaterial = async (chunkTranscript, chunkNumber, lectureTitle) => {
-  const ai = initializeAI();
-
-  if (!ai) {
+  if (!isGeminiConfigured()) {
     console.warn(`[AI Service] GEMINI_API_KEY not configured. Using fallback generator for chunk ${chunkNumber}.`);
     return generateFallbackMaterial(chunkTranscript, chunkNumber, lectureTitle);
   }
@@ -179,7 +221,7 @@ Regardless of the language of the transcript or lecture (whether it is in Hindi,
 Do NOT use the non-English source language in your output (except for universal scientific terms or code).
 
 Lecture: "${lectureTitle}"
-Chunk ${chunkNumber}
+Chunk Number: ${chunkNumber}
 
 Transcript:
 """
@@ -188,10 +230,20 @@ ${chunkTranscript}
 
 Generate a JSON response with EXACTLY this structure (no markdown, no code blocks, just raw JSON):
 {
-  "title": "A concise descriptive title in ENGLISH for this section (max 10 words)",
-  "summary": "A clear 2-3 paragraph summary in ENGLISH of the key content covered in this section",
-  "keyConcepts": ["concept1 in English", "concept2 in English", "concept3 in English", "concept4 in English", "concept5 in English"],
-  "keyTakeaways": ["takeaway1 in English", "takeaway2 in English", "takeaway3 in English"],
+  "title": "Concise section title in ENGLISH (max 8 words)",
+  "summary": "Comprehensive 2-3 paragraph summary in ENGLISH explaining the concepts clearly",
+  "keyConcepts": [
+    "Concept 1 in English",
+    "Concept 2 in English",
+    "Concept 3 in English",
+    "Concept 4 in English",
+    "Concept 5 in English"
+  ],
+  "keyTakeaways": [
+    "Actionable takeaway 1 in English",
+    "Actionable takeaway 2 in English",
+    "Actionable takeaway 3 in English"
+  ],
   "flashcards": [
     {"question": "English question 1?", "answer": "English answer 1"},
     {"question": "English question 2?", "answer": "English answer 2"},
@@ -210,9 +262,7 @@ Rules:
 - Summary should be comprehensive but readable`;
 
   try {
-    const result = await ai.generateContent(prompt);
-    const responseText = result.response.text();
-    
+    const responseText = await callGeminiWithRetry(prompt);
     let cleanJson = responseText.trim();
     cleanJson = cleanJson.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
     
@@ -235,9 +285,7 @@ Rules:
 };
 
 export const generateQuizQuestions = async (chunkTranscript, chunkTitle, lectureTitle) => {
-  const ai = initializeAI();
-
-  if (!ai) {
+  if (!isGeminiConfigured()) {
     console.warn(`[AI Service] GEMINI_API_KEY not configured. Using fallback quiz for "${chunkTitle}".`);
     return generateFallbackQuiz(chunkTranscript, chunkTitle, lectureTitle);
   }
@@ -278,9 +326,7 @@ Rules:
 - Return ONLY valid JSON, no other text`;
 
   try {
-    const result = await ai.generateContent(prompt);
-    const responseText = result.response.text();
-    
+    const responseText = await callGeminiWithRetry(prompt);
     let cleanJson = responseText.trim();
     cleanJson = cleanJson.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
     
@@ -300,13 +346,11 @@ Rules:
 };
 
 /**
- * Generate learning material AND quiz questions for all chunks in a single AI call
- * to minimize token consumption and avoid multiple API calls.
+ * Generate learning material AND quiz questions in optimized batches
+ * with retry logic on 503 high-demand errors.
  */
 export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
-  const ai = initializeAI();
-
-  if (!ai) {
+  if (!isGeminiConfigured()) {
     console.warn(`[AI Service] GEMINI_API_KEY not configured. Using fallback generator for all chunks.`);
     const fallbackResults = {};
     for (const chunk of rawChunks) {
@@ -317,8 +361,8 @@ export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
     return fallbackResults;
   }
 
-  // If there are more than 8 chunks, batch in groups of 6 to guarantee response fits within output tokens
-  const BATCH_SIZE = 8;
+  // Batch in groups of 3 chunks to prevent 503 high demand timeouts and stay within output limits
+  const BATCH_SIZE = 3;
   const chunkBatches = [];
   for (let i = 0; i < rawChunks.length; i += BATCH_SIZE) {
     chunkBatches.push(rawChunks.slice(i, i + BATCH_SIZE));
@@ -328,11 +372,11 @@ export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
 
   for (let b = 0; b < chunkBatches.length; b++) {
     const batch = chunkBatches[b];
-    console.log(`[AI Service] Processing batch ${b + 1}/${chunkBatches.length} (${batch.length} chunks) in a single Gemini call...`);
+    console.log(`[AI Service] Processing batch ${b + 1}/${chunkBatches.length} (${batch.length} chunks) with Gemini...`);
 
     const sectionsPrompt = batch.map(c => {
       // Limit transcript preview per chunk if very long to stay well within context limit
-      const textSample = c.transcript.length > 2500 ? c.transcript.slice(0, 2500) + '...' : c.transcript;
+      const textSample = c.transcript.length > 2000 ? c.transcript.slice(0, 2000) + '...' : c.transcript;
       return `=== CHUNK ${c.chunkNumber} (Time: ${Math.floor(c.startTime / 60)}m - ${Math.floor(c.endTime / 60)}m) ===\n${textSample}`;
     }).join('\n\n');
 
@@ -412,8 +456,7 @@ Rules:
 - correctAnswer must exactly match one of the 4 options.`;
 
     try {
-      const result = await ai.generateContent(prompt);
-      const responseText = result.response.text();
+      const responseText = await callGeminiWithRetry(prompt, 3);
       let cleanJson = responseText.trim();
       cleanJson = cleanJson.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
       const parsed = JSON.parse(cleanJson);
@@ -455,6 +498,11 @@ Rules:
         allResults[rawChunk.chunkNumber] = { ...material, quizQuestions: quiz };
       }
     }
+
+    // Small delay between batches to respect rate limits
+    if (b < chunkBatches.length - 1) {
+      await sleep(1000);
+    }
   }
 
   return allResults;
@@ -465,4 +513,3 @@ export default {
   generateQuizQuestions,
   generateAllChunksContent,
 };
-

@@ -7,6 +7,7 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -22,7 +23,7 @@ const Register = () => {
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Password must be at least 6 characters long');
       return;
     }
 
@@ -41,74 +42,108 @@ const Register = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-card__header">
-          <h1 className="auth-card__title">Create account</h1>
-          <p className="auth-card__subtitle">Start your learning journey</p>
+        <div className="auth-card__badge">
+          <span>🚀</span> Get Started Free
         </div>
 
-        {error && <div className="alert alert--error">{error}</div>}
+        <div className="auth-card__header">
+          <h1 className="auth-card__title">Create Account</h1>
+          <p className="auth-card__subtitle">Start transforming videos into interactive bite-sized mastery</p>
+        </div>
+
+        {error && (
+          <div className="alert alert--error">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label htmlFor="name" className="form-label">Name</label>
-            <input
-              id="name"
-              type="text"
-              className="form-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              required
-            />
+            <label htmlFor="name" className="form-label">
+              <span>Full Name</span>
+            </label>
+            <div className="form-input-wrapper">
+              <input
+                id="name"
+                type="text"
+                className="form-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ada Lovelace"
+                required
+              />
+            </div>
           </div>
 
           <div className="form-group">
-            <label htmlFor="email" className="form-label">Email</label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
+            <label htmlFor="email" className="form-label">
+              <span>Email Address</span>
+            </label>
+            <div className="form-input-wrapper">
+              <input
+                id="email"
+                type="email"
+                className="form-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@domain.com"
+                required
+              />
+            </div>
           </div>
 
           <div className="form-group">
-            <label htmlFor="password" className="form-label">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
+            <label htmlFor="password" className="form-label">
+              <span>Password</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Min. 6 chars</span>
+            </label>
+            <div className="form-input-wrapper">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                className="form-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+              />
+              <button
+                type="button"
+                className="form-input-icon-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? '👁️' : '👁️‍🗨️'}
+              </button>
+            </div>
           </div>
 
           <div className="form-group">
-            <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              className="form-input"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <label htmlFor="confirmPassword" className="form-label">
+              <span>Confirm Password</span>
+            </label>
+            <div className="form-input-wrapper">
+              <input
+                id="confirmPassword"
+                type={showPassword ? 'text' : 'password'}
+                className="form-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
           </div>
 
-          <button type="submit" className="btn btn--primary btn--full" disabled={loading}>
-            {loading ? <span className="btn-spinner"></span> : 'Create Account'}
+          <button type="submit" className="btn btn--primary btn--full btn--lg" disabled={loading}>
+            {loading ? <span className="btn-spinner"></span> : 'Create Your Account →'}
           </button>
         </form>
 
         <p className="auth-card__footer">
-          Already have an account? <Link to="/login" className="auth-link">Sign in</Link>
+          Already have an account? <Link to="/login" className="auth-link">Sign in here</Link>
         </p>
       </div>
     </div>
