@@ -2,10 +2,6 @@ import Chunk from '../models/Chunk.js';
 import Lecture from '../models/Lecture.js';
 import QuizAttempt from '../models/QuizAttempt.js';
 
-/**
- * GET /api/chunks/:chunkId
- * Get a single chunk (with unlock verification)
- */
 export const getChunk = async (req, res) => {
   try {
     const chunk = await Chunk.findById(req.params.chunkId);
@@ -14,13 +10,11 @@ export const getChunk = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Chunk not found' });
     }
 
-    // Verify lecture ownership
     const lecture = await Lecture.findById(chunk.lecture);
     if (!lecture || lecture.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Verify chunk is unlocked
     const isUnlocked = await isChunkUnlocked(chunk, req.user._id);
     if (!isUnlocked) {
       return res.status(403).json({ success: false, message: 'This chunk is locked. Complete the previous quiz first.' });
@@ -49,10 +43,6 @@ export const getChunk = async (req, res) => {
   }
 };
 
-/**
- * GET /api/chunks/:chunkId/quiz
- * Get quiz questions for a chunk (without correct answers)
- */
 export const getChunkQuiz = async (req, res) => {
   try {
     const chunk = await Chunk.findById(req.params.chunkId);
@@ -75,7 +65,6 @@ export const getChunkQuiz = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No quiz available for this chunk' });
     }
 
-    // Return questions WITHOUT correct answers
     const questions = chunk.quizQuestions.map(q => ({
       questionId: q.questionId,
       question: q.question,
@@ -89,13 +78,9 @@ export const getChunkQuiz = async (req, res) => {
   }
 };
 
-/**
- * POST /api/chunks/:chunkId/quiz/submit
- * Submit quiz answers and calculate score
- */
 export const submitQuiz = async (req, res) => {
   try {
-    const { answers } = req.body; // [{ questionId, selectedAnswer }]
+    const { answers } = req.body;
 
     if (!answers || !Array.isArray(answers) || answers.length === 0) {
       return res.status(400).json({ success: false, message: 'Please provide answers' });
@@ -121,7 +106,6 @@ export const submitQuiz = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No quiz available for this chunk' });
     }
 
-    // Grade the quiz
     const totalQuestions = chunk.quizQuestions.length;
     let correctAnswers = 0;
     const gradedAnswers = [];
@@ -144,7 +128,6 @@ export const submitQuiz = async (req, res) => {
     const score = Math.round((correctAnswers / totalQuestions) * 100);
     const passed = score >= 75;
 
-    // Save quiz attempt
     const attempt = await QuizAttempt.create({
       user: req.user._id,
       lecture: lecture._id,
@@ -156,7 +139,6 @@ export const submitQuiz = async (req, res) => {
       answers: gradedAnswers,
     });
 
-    // Determine if next chunk was unlocked
     let nextChunkUnlocked = false;
     if (passed) {
       const nextChunk = await Chunk.findOne({
@@ -166,7 +148,6 @@ export const submitQuiz = async (req, res) => {
       nextChunkUnlocked = !!nextChunk;
     }
 
-    // Build detailed results with explanations
     const results = chunk.quizQuestions.map(q => {
       const graded = gradedAnswers.find(a => a.questionId === q.questionId);
       return {
@@ -195,20 +176,15 @@ export const submitQuiz = async (req, res) => {
   }
 };
 
-/**
- * Helper: Check if a chunk is unlocked for a user
- */
 const isChunkUnlocked = async (chunk, userId) => {
-  // First chunk is always unlocked
   if (chunk.isUnlockedByDefault) return true;
 
-  // Check if the previous chunk's quiz has been passed
   const prevChunk = await Chunk.findOne({
     lecture: chunk.lecture,
     order: chunk.order - 1,
   });
 
-  if (!prevChunk) return true; // No previous chunk means this is first
+  if (!prevChunk) return true;
 
   const passedAttempt = await QuizAttempt.findOne({
     user: userId,
