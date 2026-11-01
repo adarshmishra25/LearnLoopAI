@@ -11,16 +11,14 @@ const LecturePage = () => {
   const [loading, setLoading] = useState(true);
   const [reprocessing, setReprocessing] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('material'); // 'material', 'flashcards', 'quiz'
+  const [activeTab, setActiveTab] = useState('material');
 
-  // Quiz state
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [userAnswers, setUserAnswers] = useState({});
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState(null);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
 
-  // Flashcard state
   const [flippedCards, setFlippedCards] = useState(new Set());
 
   const fetchLecture = async () => {
@@ -29,12 +27,10 @@ const LecturePage = () => {
       setLecture(res.data.lecture);
       setChunks(res.data.chunks || []);
       
-      // Auto-select first unlocked chunk if none selected
       if (!selectedChunk) {
         const firstUnlocked = res.data.chunks.find(c => c.isUnlocked);
         if (firstUnlocked) setSelectedChunk(firstUnlocked);
       } else {
-        // Refresh the selected chunk data
         const updated = res.data.chunks.find(c => c._id === selectedChunk._id);
         if (updated) setSelectedChunk(updated);
       }
@@ -97,7 +93,6 @@ const LecturePage = () => {
       const res = await submitQuizAPI(selectedChunk._id, answers);
       setQuizResult(res.data);
       
-      // Refresh lecture data to update unlock states
       await fetchLecture();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit quiz');
@@ -119,7 +114,6 @@ const LecturePage = () => {
 
     try {
       await reprocessLecture(id);
-      // Poll every 3 seconds until completed
       const checkInterval = setInterval(async () => {
         try {
           const res = await getLecture(id);
@@ -190,7 +184,6 @@ const LecturePage = () => {
 
   return (
     <div className="lecture-page">
-      {/* Header Bar */}
       <div className="lecture-page__header">
         <div className="lecture-page__header-left">
           <button className="btn btn--ghost btn--sm" onClick={() => navigate('/dashboard')}>
@@ -232,9 +225,7 @@ const LecturePage = () => {
       </div>
 
       <div className="lecture-page__content">
-        {/* Left: Video Player & Learning Section */}
         <div className="lecture-page__main">
-          {/* YouTube Video Container */}
           <div className="video-container">
             <iframe
               src={getVideoEmbedUrl(lecture?.videoUrl)}
@@ -245,7 +236,6 @@ const LecturePage = () => {
             ></iframe>
           </div>
 
-          {/* Tab Navigation for Current Chunk */}
           {selectedChunk && !quizResult && (
             <div className="learning-tabs">
               <button
@@ -276,7 +266,6 @@ const LecturePage = () => {
             </div>
           )}
 
-          {/* Tab 1: Core Material */}
           {selectedChunk && activeTab === 'material' && !quizResult && (
             <div className="learning-material">
               <div className="learning-material__header">
@@ -287,7 +276,6 @@ const LecturePage = () => {
                 <h2 className="learning-material__title">{selectedChunk.title}</h2>
               </div>
 
-              {/* Summary */}
               <section className="material-section">
                 <h3 className="material-section__heading">
                   <span>📝</span> Section Summary
@@ -295,7 +283,6 @@ const LecturePage = () => {
                 <p className="material-section__text">{selectedChunk.summary}</p>
               </section>
 
-              {/* Key Concepts */}
               {selectedChunk.keyConcepts && selectedChunk.keyConcepts.length > 0 && (
                 <section className="material-section">
                   <h3 className="material-section__heading">
@@ -309,7 +296,6 @@ const LecturePage = () => {
                 </section>
               )}
 
-              {/* Key Takeaways */}
               {selectedChunk.keyTakeaways && selectedChunk.keyTakeaways.length > 0 && (
                 <section className="material-section">
                   <h3 className="material-section__heading">
@@ -323,7 +309,6 @@ const LecturePage = () => {
                 </section>
               )}
 
-              {/* Quick CTA to test understanding */}
               {selectedChunk.hasQuiz && (
                 <div className="quiz-cta">
                   <button 
@@ -341,7 +326,6 @@ const LecturePage = () => {
             </div>
           )}
 
-          {/* Tab 2: Flashcards View */}
           {selectedChunk && activeTab === 'flashcards' && !quizResult && (
             <div className="learning-material">
               <div className="learning-material__header">
@@ -388,7 +372,6 @@ const LecturePage = () => {
             </div>
           )}
 
-          {/* Tab 3: Quiz Mode */}
           {activeTab === 'quiz' && !quizResult && (
             <div className="quiz-section">
               <div className="quiz-section__header">
@@ -462,7 +445,6 @@ const LecturePage = () => {
             </div>
           )}
 
-          {/* Quiz Results Screen */}
           {quizResult && (
             <div className="quiz-results">
               <div className={`quiz-results__banner ${quizResult.passed ? 'quiz-results__banner--pass' : 'quiz-results__banner--fail'}`}>
@@ -489,7 +471,6 @@ const LecturePage = () => {
                 </div>
               </div>
 
-              {/* Detailed Breakdown */}
               <div className="quiz-results__details">
                 {quizResult.results.map((r, i) => (
                   <div key={i} className={`result-card ${r.isCorrect ? 'result-card--correct' : 'result-card--wrong'}`}>
@@ -548,7 +529,6 @@ const LecturePage = () => {
           )}
         </div>
 
-        {/* Right: Sections Sidebar */}
         <div className="lecture-page__sidebar">
           <div className="sidebar__header">
             <span className="sidebar__title">Course Sections</span>

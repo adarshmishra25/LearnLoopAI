@@ -81,7 +81,6 @@ body {
   line-height: 1.5;
 }
 
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -103,8 +102,6 @@ body {
   flex-direction: column;
 }
 
-/* ===================== Layout ===================== */
-
 .app-layout {
   min-height: 100vh;
   display: flex;
@@ -113,10 +110,8 @@ body {
 
 .main-content {
   flex: 1;
-  padding-top: 72px; /* navbar height */
+  padding-top: 72px; 
 }
-
-/* ===================== Navbar ===================== */
 
 .navbar {
   position: fixed;
@@ -285,8 +280,6 @@ body {
   background: var(--error-bg);
 }
 
-/* ===================== Buttons ===================== */
-
 .btn {
   display: inline-flex;
   align-items: center;
@@ -406,8 +399,6 @@ body {
   display: inline-block;
 }
 
-/* ===================== Text Utilities ===================== */
-
 .text-gradient {
   background: var(--gradient-primary);
   -webkit-background-clip: text;
@@ -418,8 +409,6 @@ body {
 .text-muted {
   color: var(--text-muted);
 }
-
-/* ===================== Forms ===================== */
 
 .form-group {
   margin-bottom: 1.35rem;
@@ -489,8 +478,6 @@ body {
   line-height: 1.4;
 }
 
-/* ===================== Alerts ===================== */
-
 .alert {
   padding: 0.85rem 1.15rem;
   border-radius: var(--radius-sm);
@@ -514,8 +501,6 @@ body {
   color: var(--success);
   border: 1px solid var(--success-border);
 }
-
-/* ===================== Badges ===================== */
 
 .badge {
   display: inline-flex;
@@ -578,8 +563,6 @@ body {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.5); opacity: 0.4; }
 }
-
-/* ===================== Auth Pages ===================== */
 
 .auth-page {
   min-height: calc(100vh - 72px);
@@ -674,8 +657,6 @@ body {
   text-decoration: underline;
 }
 
-/* ===================== Dashboard ===================== */
-
 .dashboard {
   max-width: 1340px;
   margin: 0 auto;
@@ -703,7 +684,6 @@ body {
   margin-top: 0.25rem;
 }
 
-/* Stats Strip */
 .stats-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -759,7 +739,6 @@ body {
   margin-top: 0.2rem;
 }
 
-/* Controls Bar */
 .dashboard-controls {
   display: flex;
   align-items: center;
@@ -834,8 +813,6 @@ body {
   color: white;
   box-shadow: 0 2px 10px rgba(139, 92, 246, 0.4);
 }
-
-/* ===================== Lectures Grid ===================== */
 
 .lectures-grid {
   display: grid;
@@ -999,8 +976,6 @@ body {
   align-items: center;
 }
 
-/* ===================== Progress Bar ===================== */
-
 .progress-section {
   margin-top: auto;
   padding-top: 0.75rem;
@@ -1057,8 +1032,6 @@ body {
   border-radius: 50%;
   box-shadow: 0 0 8px white;
 }
-
-/* ===================== Modal ===================== */
 
 .modal-overlay {
   position: fixed;
@@ -1180,8 +1153,6 @@ body {
   margin-top: 1.75rem;
 }
 
-/* ===================== Empty State ===================== */
-
 .empty-state {
   text-align: center;
   padding: 5rem 2rem;
@@ -1221,8 +1192,6 @@ body {
   line-height: 1.6;
 }
 
-/* ===================== Page Loader ===================== */
-
 .page-loader {
   display: flex;
   flex-direction: column;
@@ -1244,8 +1213,6 @@ body {
   border-radius: 50%;
   animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
 }
-
-/* ===================== Lecture Page ===================== */
 
 .lecture-page {
   max-width: 1440px;
@@ -1300,7 +1267,6 @@ body {
   align-items: start;
 }
 
-/* Video Player */
 .video-container {
   position: relative;
   width: 100%;
@@ -1322,7 +1288,6 @@ body {
   border: none;
 }
 
-/* Learning Tabs Bar */
 .learning-tabs {
   display: flex;
   gap: 0.5rem;
@@ -1361,8 +1326,6 @@ body {
   border: 1px solid var(--border-hover);
   box-shadow: var(--shadow-sm);
 }
-
-/* ===================== Sidebar ===================== */
 
 .lecture-page__sidebar {
   position: sticky;
@@ -1510,8 +1473,6 @@ body {
   line-height: 1.3;
 }
 
-/* ===================== Learning Material ===================== */
-
 .learning-material {
   background: var(--bg-card);
   backdrop-filter: blur(16px);
@@ -1560,7 +1521,6 @@ body {
   white-space: pre-line;
 }
 
-/* Key Concepts */
 .concepts-grid {
   display: flex;
   flex-wrap: wrap;
@@ -1584,7 +1544,6 @@ body {
   transform: translateY(-1px);
 }
 
-/* Key Takeaways */
 .takeaways-list {
   list-style: none;
   display: flex;
@@ -1611,8 +1570,6 @@ body {
   color: var(--success);
   font-weight: 800;
 }
-
-/* ===================== Flashcards ===================== */
 
 .flashcards-container {
   margin-bottom: 2rem;
@@ -1702,7 +1659,6 @@ body {
   gap: 0.3rem;
 }
 
-/* Quiz CTA */
 .quiz-cta {
   text-align: center;
   padding: 2.5rem 1.5rem 1rem;
@@ -1717,8 +1673,6 @@ body {
   color: var(--text-secondary);
   margin-top: 0.85rem;
 }
-
-/* ===================== Quiz Section ===================== */
 
 .quiz-section {
   background: var(--bg-card);
@@ -1857,8 +1811,6 @@ body {
   color: var(--text-primary);
   font-weight: 600;
 }
-
-/* ===================== Quiz Results ===================== */
 
 .quiz-results {
   background: var(--bg-card);
@@ -2018,8 +1970,6 @@ body {
   flex-wrap: wrap;
 }
 
-/* ===================== Error Page ===================== */
-
 .error-page {
   display: flex;
   flex-direction: column;
@@ -2030,8 +1980,6 @@ body {
   text-align: center;
   padding: 2.5rem;
 }
-
-/* ===================== Animations ===================== */
 
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -2063,8 +2011,6 @@ body {
     transform: scale(1) translateY(0);
   }
 }
-
-/* ===================== Responsive ===================== */
 
 @media (max-width: 1024px) {
   .lecture-page__content {

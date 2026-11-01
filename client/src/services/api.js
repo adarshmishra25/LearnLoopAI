@@ -8,7 +8,6 @@ const API = axios.create({
   baseURL: API_BASE,
 });
 
-// Attach token to every request
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -17,14 +16,12 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 responses globally
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Only redirect if not already on auth pages
       if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
         window.location.href = '/login';
       }
@@ -33,20 +30,17 @@ API.interceptors.response.use(
   }
 );
 
-// Auth
 export const checkHealth = () => API.get('/health');
 export const registerUser = (data) => API.post('/auth/register', data);
 export const loginUser = (data) => API.post('/auth/login', data);
 export const getMe = () => API.get('/auth/me');
 
-// Lectures
 export const createLecture = (data) => API.post('/lectures', data);
 export const getLectures = () => API.get('/lectures');
 export const getLecture = (id) => API.get(`/lectures/${id}`);
 export const deleteLecture = (id) => API.delete(`/lectures/${id}`);
 export const reprocessLecture = (id) => API.post(`/lectures/${id}/reprocess`);
 
-// Chunks & Quiz
 export const getChunk = (chunkId) => API.get(`/chunks/${chunkId}`);
 export const getChunkQuiz = (chunkId) => API.get(`/chunks/${chunkId}/quiz`);
 export const submitQuiz = (chunkId, answers) => API.post(`/chunks/${chunkId}/quiz/submit`, { answers });

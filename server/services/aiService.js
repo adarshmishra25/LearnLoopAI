@@ -12,10 +12,6 @@ const isGeminiConfigured = () => {
   );
 };
 
-/**
- * Execute a Gemini prompt with automatic retry on temporary 503 / 429 errors
- * and failover between viable model versions.
- */
 const callGeminiWithRetry = async (prompt, maxRetries = 3) => {
   if (!isGeminiConfigured()) {
     return null;
@@ -26,7 +22,6 @@ const callGeminiWithRetry = async (prompt, maxRetries = 3) => {
   }
 
   const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-  // Candidate fallback models if primary model is unavailable or overloaded
   const candidateModels = [
     primaryModel,
     'gemini-3.6-flash',
@@ -57,7 +52,6 @@ const callGeminiWithRetry = async (prompt, maxRetries = 3) => {
           continue;
         }
 
-        // If not recoverable on this attempt or out of retries for this model
         if (attempt === maxRetries) {
           console.warn(`[AI Service] ${modelName} exhausted ${maxRetries} retry attempts.`);
         }
@@ -345,10 +339,6 @@ Rules:
   }
 };
 
-/**
- * Generate learning material AND quiz questions in optimized batches
- * with retry logic on 503 high-demand errors.
- */
 export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
   if (!isGeminiConfigured()) {
     console.warn(`[AI Service] GEMINI_API_KEY not configured. Using fallback generator for all chunks.`);
@@ -361,7 +351,6 @@ export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
     return fallbackResults;
   }
 
-  // Batch in groups of 3 chunks to prevent 503 high demand timeouts and stay within output limits
   const BATCH_SIZE = 3;
   const chunkBatches = [];
   for (let i = 0; i < rawChunks.length; i += BATCH_SIZE) {
@@ -375,7 +364,6 @@ export const generateAllChunksContent = async (rawChunks, lectureTitle) => {
     console.log(`[AI Service] Processing batch ${b + 1}/${chunkBatches.length} (${batch.length} chunks) with Gemini...`);
 
     const sectionsPrompt = batch.map(c => {
-      // Limit transcript preview per chunk if very long to stay well within context limit
       const textSample = c.transcript.length > 2000 ? c.transcript.slice(0, 2000) + '...' : c.transcript;
       return `=== CHUNK ${c.chunkNumber} (Time: ${Math.floor(c.startTime / 60)}m - ${Math.floor(c.endTime / 60)}m) ===\n${textSample}`;
     }).join('\n\n');
@@ -484,7 +472,6 @@ Rules:
             })),
           };
         } else {
-          // Fallback for this single chunk if missing from AI response
           const material = generateFallbackMaterial(rawChunk.transcript, rawChunk.chunkNumber, lectureTitle);
           const quiz = generateFallbackQuiz(rawChunk.transcript, material.title, lectureTitle);
           allResults[rawChunk.chunkNumber] = { ...material, quizQuestions: quiz };
@@ -499,7 +486,6 @@ Rules:
       }
     }
 
-    // Small delay between batches to respect rate limits
     if (b < chunkBatches.length - 1) {
       await sleep(1000);
     }

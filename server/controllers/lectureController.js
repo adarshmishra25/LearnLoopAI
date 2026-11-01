@@ -6,10 +6,6 @@ import { transcribeFromYouTube } from '../services/transcriptionService.js';
 import { splitTranscriptIntoChunks } from '../services/chunkService.js';
 import { generateAllChunksContent } from '../services/aiService.js';
 
-/**
- * POST /api/lectures
- * Create a new lecture and start processing
- */
 export const createLecture = async (req, res) => {
   try {
     const { videoUrl } = req.body;
@@ -44,7 +40,6 @@ export const createLecture = async (req, res) => {
       },
     });
 
-    // Process in background (don't await in response)
     processLecture(lecture._id, videoId).catch(err => {
       console.error('Background processing error:', err.message);
     });
@@ -55,25 +50,18 @@ export const createLecture = async (req, res) => {
   }
 };
 
-/**
- * Background processing of a lecture
- */
 const processLecture = async (lectureId, videoId) => {
   try {
-    // Update status to processing
     await Lecture.findByIdAndUpdate(lectureId, { status: 'processing' });
 
-    // Step 1: Get transcript
     console.log(`[Processing] Getting transcript for lecture ${lectureId}...`);
     const transcriptData = await transcribeFromYouTube(videoId);
 
-    // Update lecture with transcript
     await Lecture.findByIdAndUpdate(lectureId, {
       transcript: transcriptData.transcript,
       duration: transcriptData.duration,
     });
 
-    // Step 2: Split into chunks
     console.log(`[Processing] Splitting transcript into chunks...`);
     const rawChunks = splitTranscriptIntoChunks(transcriptData.segments, transcriptData.duration);
 
@@ -83,7 +71,6 @@ const processLecture = async (lectureId, videoId) => {
 
     const lecture = await Lecture.findById(lectureId);
 
-    // Step 3: Generate AI content for all chunks in a single call
     console.log(`[Processing] Generating AI content for ${rawChunks.length} chunks in a single AI call...`);
     const allChunksContent = await generateAllChunksContent(rawChunks, lecture.title);
 
@@ -97,7 +84,6 @@ const processLecture = async (lectureId, videoId) => {
         quizQuestions: [],
       };
 
-      // Create chunk in DB
       await Chunk.create({
         lecture: lectureId,
         chunkNumber: rawChunk.chunkNumber,
@@ -115,7 +101,6 @@ const processLecture = async (lectureId, videoId) => {
       });
     }
 
-    // Mark lecture as completed
     await Lecture.findByIdAndUpdate(lectureId, { status: 'completed' });
     console.log(`[Processing] Lecture ${lectureId} processing completed!`);
 
@@ -125,21 +110,15 @@ const processLecture = async (lectureId, videoId) => {
   }
 };
 
-/**
- * GET /api/lectures
- * Get all lectures for the authenticated user
- */
 export const getUserLectures = async (req, res) => {
   try {
     const lectures = await Lecture.find({ user: req.user._id }).sort({ createdAt: -1 });
     
-    // Enrich with chunk/progress data
     const enrichedLectures = await Promise.all(
       lectures.map(async (lecture) => {
         const chunks = await Chunk.find({ lecture: lecture._id }).sort({ order: 1 });
         const totalChunks = chunks.length;
 
-        // Get quiz attempts for this user+lecture
         const attempts = await QuizAttempt.find({
           user: req.user._id,
           lecture: lecture._id,
@@ -147,8 +126,6 @@ export const getUserLectures = async (req, res) => {
         });
 
         const passedChunkIds = new Set(attempts.map(a => a.chunk.toString()));
-        
-        // Count unlocked chunks: first chunk + chunks with passed previous quiz
         let unlockedCount = 0;
         let completedCount = 0;
         
@@ -161,7 +138,6 @@ export const getUserLectures = async (req, res) => {
           }
         }
 
-        // Also count chunks unlocked by passing the previous chunk's quiz
         for (let i = 1; i < chunks.length; i++) {
           const prevChunk = chunks[i - 1];
           if (passedChunkIds.has(prevChunk._id.toString())) {
@@ -198,10 +174,6 @@ export const getUserLectures = async (req, res) => {
   }
 };
 
-/**
- * GET /api/lectures/:id
- * Get a single lecture with its chunks and user progress
- */
 export const getLecture = async (req, res) => {
   try {
     const lecture = await Lecture.findById(req.params.id);
@@ -216,7 +188,6 @@ export const getLecture = async (req, res) => {
 
     const chunks = await Chunk.find({ lecture: lecture._id }).sort({ order: 1 });
 
-    // Determine which chunks are unlocked for this user
     const attempts = await QuizAttempt.find({
       user: req.user._id,
       lecture: lecture._id,
@@ -228,7 +199,6 @@ export const getLecture = async (req, res) => {
     const chunksWithStatus = chunks.map((chunk, index) => {
       let isUnlocked = chunk.isUnlockedByDefault;
 
-      // A chunk is unlocked if the PREVIOUS chunk's quiz has been passed
       if (index > 0) {
         const prevChunk = chunks[index - 1];
         if (passedChunkIds.has(prevChunk._id.toString())) {
@@ -247,7 +217,6 @@ export const getLecture = async (req, res) => {
         order: chunk.order,
         isUnlocked,
         isPassed,
-        // Only include full content if unlocked
         ...(isUnlocked ? {
           transcript: chunk.transcript,
           summary: chunk.summary,
@@ -283,9 +252,6 @@ export const getLecture = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/lectures/:id
- */
 export const deleteLecture = async (req, res) => {
   try {
     const lecture = await Lecture.findById(req.params.id);
@@ -298,7 +264,6 @@ export const deleteLecture = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Delete all related data
     await Chunk.deleteMany({ lecture: lecture._id });
     await QuizAttempt.deleteMany({ lecture: lecture._id });
     await Lecture.findByIdAndDelete(lecture._id);
@@ -310,10 +275,6 @@ export const deleteLecture = async (req, res) => {
   }
 };
 
-/**
- * POST /api/lectures/:id/reprocess
- * Reprocess lecture chunks using AI
- */
 export const reprocessLecture = async (req, res) => {
   try {
     const lecture = await Lecture.findById(req.params.id);
@@ -326,7 +287,6 @@ export const reprocessLecture = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Clean up existing chunks and attempts
     await Chunk.deleteMany({ lecture: lecture._id });
     await QuizAttempt.deleteMany({ lecture: lecture._id });
     await Lecture.findByIdAndUpdate(lecture._id, { status: 'processing' });

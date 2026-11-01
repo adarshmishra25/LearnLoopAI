@@ -13,7 +13,7 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, completed, processing, failed
+  const [filterStatus, setFilterStatus] = useState('all');
 
   const fetchLectures = async () => {
     try {
@@ -28,7 +28,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchLectures();
-    // Poll for status updates every 8s
     const interval = setInterval(fetchLectures, 8000);
     return () => clearInterval(interval);
   }, []);
@@ -66,7 +65,6 @@ const Dashboard = () => {
     setVideoUrl(url);
   };
 
-  // Stats calculation
   const stats = useMemo(() => {
     const total = lectures.length;
     const completed = lectures.filter(l => l.status === 'completed').length;
@@ -75,7 +73,6 @@ const Dashboard = () => {
     return { total, completed, avgScore };
   }, [lectures]);
 
-  // Filtered lectures
   const filteredLectures = useMemo(() => {
     return lectures.filter(l => {
       const matchesSearch = l.title?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
@@ -126,7 +123,6 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Stats Overview */}
       <div className="stats-strip">
         <div className="stat-card">
           <div className="stat-card__icon">📚</div>
@@ -164,7 +160,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Add Lecture Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -194,7 +189,6 @@ const Dashboard = () => {
                 </div>
                 <p className="form-hint">Make sure the video has public captions or subtitles enabled</p>
 
-                {/* Sample quick buttons */}
                 <div className="sample-links-bar">
                   <span className="sample-links-label">Quick sample lectures to try:</span>
                   <div className="sample-links-list">
@@ -243,7 +237,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Controls: Search and Filter */}
       {lectures.length > 0 && (
         <div className="dashboard-controls">
           <div className="search-box">
@@ -279,7 +272,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Lectures Grid */}
       {loading ? (
         <div className="page-loader">
           <div className="loader-spinner"></div>
@@ -416,7 +408,6 @@ const Dashboard = () => {
   );
 };
 
-// Helper to extract video ID for thumbnail
 const extractYTId = (url) => {
   if (!url) return '';
   const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);

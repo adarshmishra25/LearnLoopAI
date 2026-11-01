@@ -43,7 +43,6 @@ const Login = () => {
           <p className="auth-card__subtitle">Sign in to your account to continue your learning journey</p>
         </div>
 
-        {/* Demo Helper Button */}
         <div className="auth-card__demo-helper">
           <span>Need a quick test login?</span>
           <button 
